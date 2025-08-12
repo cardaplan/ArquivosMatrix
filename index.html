@@ -5493,8 +5493,11 @@
                     
                     // Popular selects de CEP, Bairro e Cidade
                     try { setupAddressSelects(); } catch (e) { console.error('Erro setupAddressSelects', e); }
+cursor/transformar-campos-de-entrega-em-seletores-e733
                     // Aplicar modo de entrada (select ou input) conforme config
                     try { applyAddressInputMode(); } catch (e) { console.error('Erro applyAddressInputMode', e); }
+
+                    main
                     
                     // Foco automático no campo de CEP após renderização
                     setTimeout(() => {
