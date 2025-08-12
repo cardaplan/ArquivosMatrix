@@ -266,3 +266,17 @@ function groupLog(label, fn) {
     return result;
 }
 
+// ====================================================================
+// LISTAS ESTÁTICAS PARA SELECTS DE ENDEREÇO (CEP e CIDADE)
+// ====================================================================
+// Edite estas listas para controlar as opções exibidas nos selects
+// Exemplo de CEPs: use com ou sem máscara; internamente usamos apenas dígitos
+const SELECT_CEPS = [
+    // '01001-000', '02020-020', '03030-030'
+];
+
+// Exemplo de Cidades: use o formato que deseja exibir (ex.: 'São Paulo - SP')
+const SELECT_CIDADES = [
+    // 'São Paulo - SP', 'Rio de Janeiro - RJ', 'Belo Horizonte - MG'
+];
+
