@@ -5073,13 +5073,14 @@
                     
                 } else {
                     // Validação modo CEP (original)
-                    const cep = document.getElementById('cep')?.value.replace(/\D/g, '');
+                    const cepElForValidation = document.getElementById('cep');
+                    const cep = (cepElForValidation && cepElForValidation.tagName === 'SELECT' ? cepElForValidation.value : (cepElForValidation?.value || '')).toString().replace(/\D/g, '');
                     const number = document.getElementById('number')?.value.trim();
                     
                     // Validate CEP
                     if (!cep || cep.length !== 8) {
                         showFieldError('cep', cep ? 'CEP deve ter 8 dígitos' : 'CEP é obrigatório');
-                        document.getElementById('cep').focus();
+                        try { document.getElementById('cep').focus(); } catch(e) {}
                         hasErrors = true;
                     }
                     
@@ -5435,7 +5436,10 @@
                                         Corrigir endereço / Não sei o CEP
                                     </button>
                                 </div>
-                                <input type="tel" id="cep" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent" placeholder="00000-000" autocomplete="off" oninput="clearFieldError('cep'); handleCepInput();" onchange="fetchAddress(); updateContinueButton();" onblur="updateContinueButton();" maxlength="9" inputmode="numeric">
+                                <select id="cep" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent" onchange="clearFieldError('cep'); fetchAddress(); updateContinueButton();" onblur="updateContinueButton();">
+                                    <option value="">Selecione...</option>
+                                    <!-- Options will be populated dynamically by setupAddressSelects() from config.js -->
+                                </select>
                             </div>
 
                             <!-- Modo Endereço Manual (Oculto inicialmente) -->
@@ -5463,11 +5467,17 @@
                                 <div class="grid grid-cols-2 gap-3">
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-2">Bairro *</label>
-                                        <input type="text" id="manual-neighborhood" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent" placeholder="Centro" autocomplete="off" oninput="updateManualAddressData(); searchNeighborhoodFee(); clearFieldError('manual-neighborhood');" onchange="updateContinueButton();" onblur="updateContinueButton();">
+                                        <select id="manual-neighborhood" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent" onchange="updateManualAddressData(); clearFieldError('manual-neighborhood'); searchNeighborhoodFee(); updateContinueButton();">
+                                            <option value="">Selecione...</option>
+                                            <!-- Options will be populated dynamically by setupAddressSelects() from neighborhoodsData -->
+                                        </select>
                                     </div>
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-2">Cidade *</label>
-                                        <input type="text" id="manual-city" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent" placeholder="São Paulo" autocomplete="off" oninput="updateManualAddressData(); clearFieldError('manual-city');" onchange="updateContinueButton();" onblur="updateContinueButton();">
+                                        <select id="manual-city" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent" onchange="updateManualAddressData(); clearFieldError('manual-city'); updateContinueButton();">
+                                            <option value="">Selecione...</option>
+                                            <!-- Options will be populated dynamically by setupAddressSelects() from config.js -->
+                                        </select>
                                     </div>
                                 </div>
                             </div>
@@ -5489,11 +5499,17 @@
                                 <div class="grid grid-cols-2 gap-3">
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-2">Bairro *</label>
-                                        <input type="text" id="neighborhood" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent" placeholder="Nome do bairro" autocomplete="off" oninput="updateAddressData(); clearFieldError('neighborhood'); if(this.value.trim() === '') resetNeighborhoodSearchState(); buscarTaxaPorBairroRedundante(this.value);" onchange="buscarTaxaPorBairroRedundante(this.value, true); hideNeighborhoodAutocomplete();" onblur="setTimeout(() => { buscarTaxaPorBairroRedundante(this.value, true); hideNeighborhoodAutocomplete(); }, 200);" onpaste="setTimeout(() => buscarTaxaPorBairroRedundante(this.value, true), 200);" onfocus="if(this.value.length >= 2) showNeighborhoodAutocomplete(this.value);">
+                                        <select id="neighborhood" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent" onchange="updateAddressData(); clearFieldError('neighborhood'); buscarTaxaPorBairroRedundante(this.value, true);">
+                                            <option value="">Selecione...</option>
+                                            <!-- Options will be populated dynamically by setupAddressSelects() from neighborhoodsData -->
+                                        </select>
                                     </div>
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-2">Cidade *</label>
-                                        <input type="text" id="city" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent" placeholder="Cidade - UF" autocomplete="off" oninput="updateAddressData(); clearFieldError('city');">
+                                        <select id="city" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent" onchange="updateAddressData(); clearFieldError('city');">
+                                            <option value="">Selecione...</option>
+                                            <!-- Options will be populated dynamically by setupAddressSelects() from config.js -->
+                                        </select>
                                     </div>
                                 </div>
                             </div>
@@ -5501,11 +5517,14 @@
                     `;
                     continueBtn.disabled = true;
                     
+                    // Popular selects de CEP, Bairro e Cidade
+                    try { setupAddressSelects(); } catch (e) { console.error('Erro setupAddressSelects', e); }
+                    
                     // Foco automático no campo de CEP após renderização
                     setTimeout(() => {
                         const cepField = document.getElementById('cep');
                         if (cepField) {
-                            cepField.focus();
+                            try { cepField.focus(); } catch(e) {}
                         }
                     }, 100);
                     break;
@@ -5520,7 +5539,8 @@
 
         // Handle CEP input - fetch address when 8 digits are entered
         function handleCepInput() {
-            const cep = document.getElementById('cep').value.replace(/\D/g, '');
+            const cepEl = document.getElementById('cep');
+            const cep = (cepEl && cepEl.tagName === 'SELECT' ? cepEl.value : (cepEl?.value || '')).toString().replace(/\D/g, '');
             
             // Limpar campos de endereço e taxa quando usuário editar CEP
             if (cep.length < 8) {
@@ -5549,14 +5569,18 @@
 
         // Fetch address from CEP with multiple API fallbacks
         async function fetchAddress() {
-            const cep = document.getElementById('cep').value.replace(/\D/g, '');
+            const cepEl = document.getElementById('cep');
+            const cep = (cepEl && cepEl.tagName === 'SELECT' ? cepEl.value : (cepEl?.value || '')).toString().replace(/\D/g, '');
             
             if (cep.length !== 8) return;
             
             // Show loading indicator
             const cepField = document.getElementById('cep');
-            const originalPlaceholder = cepField.placeholder;
-            cepField.placeholder = 'Digite o CEP...';
+            let originalPlaceholder = '';
+            if (cepField && cepField.tagName !== 'SELECT') {
+                originalPlaceholder = cepField.placeholder;
+                cepField.placeholder = 'Digite o CEP...';
+            }
             cepField.disabled = true;
             
             // List of CEP APIs to try
@@ -5648,14 +5672,32 @@
                     document.getElementById('street').value = streetValue;
                     
                     // Se a rua vier vazia, não preencher o bairro pois pode estar incorreto
+                    const neighborhoodEl = document.getElementById('neighborhood');
+                    const cityEl = document.getElementById('city');
                     if (!streetValue) {
-                        document.getElementById('neighborhood').value = '';
+                        if (neighborhoodEl) neighborhoodEl.value = '';
                         debugLog('Rua vazia no retorno do CEP, campo de bairro foi limpo para evitar dados incorretos');
-                    } else {
-                        document.getElementById('neighborhood').value = data.bairro || '';
+                    } else if (neighborhoodEl) {
+                        const bairroValor = (data.bairro || '').trim();
+                        if (neighborhoodEl.tagName === 'SELECT') {
+                            const normalizar = s => s.toLowerCase().normalize('NFD').replace(/[^\w\s-]/g, '').trim();
+                            const opt = Array.from(neighborhoodEl.options).find(o => normalizar(o.value) === normalizar(bairroValor));
+                            if (opt) neighborhoodEl.value = opt.value;
+                        } else {
+                            neighborhoodEl.value = bairroValor;
+                        }
                     }
                     
-                    document.getElementById('city').value = `${data.localidade || ''} - ${data.uf || ''}`;
+                    if (cityEl) {
+                        const cityValue = `${data.localidade || ''} - ${data.uf || ''}`;
+                        // Se for select e a opção não existir, não altera; apenas tenta selecionar se existir
+                        if (cityEl.tagName === 'SELECT') {
+                            const opt = Array.from(cityEl.options).find(o => o.value === cityValue);
+                            if (opt) cityEl.value = cityValue;
+                        } else {
+                            cityEl.value = cityValue;
+                        }
+                    }
                     document.getElementById('address-fields').classList.remove('hidden');
                     
                     // Se a rua vier vazia, não incluir o bairro no objeto orderData.address
@@ -5678,8 +5720,10 @@
                     const cepField = document.getElementById('cep');
                     if (cepField) {
                         cepField.disabled = false;
-                        cepField.readOnly = false;
-                        cepField.placeholder = originalPlaceholder;
+                        if (cepField.tagName !== 'SELECT') {
+                            cepField.readOnly = false;
+                            cepField.placeholder = originalPlaceholder;
+                        }
                     }
                     
                     debugLog(`Endereço encontrado via ${api.name}:`, orderData.address);
@@ -5707,8 +5751,10 @@
             showCustomAlert('Serviço de CEP temporariamente indisponível. Você pode preencher o endereço manualmente.', () => {
                 // Show address fields for manual input
                 document.getElementById('street').value = '';
-                document.getElementById('neighborhood').value = '';
-                document.getElementById('city').value = '';
+                const neighborhoodEl = document.getElementById('neighborhood');
+                const cityEl = document.getElementById('city');
+                if (neighborhoodEl) neighborhoodEl.value = '';
+                if (cityEl) cityEl.value = '';
                 document.getElementById('address-fields').classList.remove('hidden');
                 
                 // Focus on street field
@@ -5729,7 +5775,9 @@
             });
             
             // Restore field state
-            cepField.placeholder = originalPlaceholder;
+            if (cepField && cepField.tagName !== 'SELECT') {
+                cepField.placeholder = originalPlaceholder;
+            }
             cepField.disabled = false;
         }
 
@@ -5740,6 +5788,63 @@
             if (continueBtn) {
                 continueBtn.disabled = false;
             }
+        }
+
+        // Popular selects de CEP, Bairro e Cidade a partir do config.js e da planilha de bairros
+        function setupAddressSelects() {
+            try {
+                const cepsLista = (typeof SELECT_CEPS !== 'undefined' && Array.isArray(SELECT_CEPS)) ? SELECT_CEPS : [];
+                const cidadesLista = (typeof SELECT_CIDADES !== 'undefined' && Array.isArray(SELECT_CIDADES)) ? SELECT_CIDADES : [];
+
+                const bairrosFonte = (window.neighborhoodsData && Array.isArray(window.neighborhoodsData)) ? window.neighborhoodsData : [];
+                const bairrosUnicos = Array.from(new Set(bairrosFonte
+                    .map(item => (item.bairro || item.neighborhood || '').trim())
+                    .filter(Boolean)
+                )).sort((a,b)=>a.localeCompare(b));
+
+                const cepEl = document.getElementById('cep');
+                if (cepEl && cepEl.tagName === 'SELECT') {
+                    preencherSelect(cepEl, cepsLista.map(v => ({ value: v.replace(/\D/g, ''), label: v })));
+                }
+
+                const cityEl = document.getElementById('city');
+                if (cityEl && cityEl.tagName === 'SELECT') {
+                    preencherSelect(cityEl, cidadesLista.map(v => ({ value: v, label: v })));
+                }
+
+                const bairroEl = document.getElementById('neighborhood');
+                if (bairroEl && bairroEl.tagName === 'SELECT') {
+                    preencherSelect(bairroEl, bairrosUnicos.map(v => ({ value: v, label: v })));
+                }
+
+                const manualCityEl = document.getElementById('manual-city');
+                if (manualCityEl && manualCityEl.tagName === 'SELECT') {
+                    preencherSelect(manualCityEl, cidadesLista.map(v => ({ value: v, label: v })));
+                }
+
+                const manualBairroEl = document.getElementById('manual-neighborhood');
+                if (manualBairroEl && manualBairroEl.tagName === 'SELECT') {
+                    preencherSelect(manualBairroEl, bairrosUnicos.map(v => ({ value: v, label: v })));
+                }
+            } catch (e) {
+                errorLog('Erro ao preparar selects de endereço:', e);
+            }
+        }
+
+        function preencherSelect(selectEl, options) {
+            const firstOption = selectEl.querySelector('option');
+            selectEl.innerHTML = '';
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = firstOption ? firstOption.textContent : 'Selecione...';
+            selectEl.appendChild(placeholder);
+
+            options.forEach(opt => {
+                const option = document.createElement('option');
+                option.value = opt.value;
+                option.textContent = opt.label;
+                selectEl.appendChild(option);
+            });
         }
 
         // Show all delivery options (only enabled ones from configuration)
