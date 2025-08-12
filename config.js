@@ -267,6 +267,20 @@ function groupLog(label, fn) {
 }
 
 // ====================================================================
+cursor/transformar-campos-de-entrega-em-seletores-e733
+// MODO FORMSELECT PARA ENDEREÇO (CEP, BAIRRO, CIDADE)
+// ====================================================================
+// Quando true, os campos CEP, Bairro e Cidade usam <select> com listas definidas
+// Quando false, os campos permitem digitação livre (<input>)
+const ADDRESS_FORMSELECT_ENABLED = true;
+
+// (Opcional) Controle por campo. Se não definido, usa o valor global acima
+// Exemplo: { cep: true, neighborhood: true, city: false }
+// const ADDRESS_FORMSELECT_FIELDS = { cep: true, neighborhood: true, city: true };
+
+// ====================================================================
+
+main
 // LISTAS ESTÁTICAS PARA SELECTS DE ENDEREÇO (CEP e CIDADE)
 // ====================================================================
 // Edite estas listas para controlar as opções exibidas nos selects

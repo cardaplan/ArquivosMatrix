@@ -2997,74 +2997,48 @@
                 applyConfiguration();
                 updateProgress(20);
 
-                // Load categories data
-                infoLog('Loading categories data...');
-                categoriesData = await loadCSVData(CATEGORIES_CSV_URL);
-                updateProgress(40);
+                // Disparar carregamentos em paralelo (após config aplicada)
+                infoLog('Loading CSV data in parallel...');
+                const categoriesPromise = loadCSVData(CATEGORIES_CSV_URL).then(data => { categoriesData = data; updateProgress(35); return data; });
+                const menuPromise = loadCSVData(MENU_CSV_URL).then(data => { updateProgress(55); return data; });
+                const hoursPromise = loadCSVData(HOURS_CSV_URL).then(data => { hoursData = data; updateProgress(65); return data; });
+                const neighborhoodsPromise = loadCSVData(NEIGHBORHOODS_CSV_URL).then(raw => {
+                    let mapped = raw.map(row => ({
+                        bairro: (row.bairro || row.nome_bairro || row.Bairro || row.BAIRRO || '').trim().toLowerCase(),
+                        taxa: parseFloat((row.taxa || row.valor_taxa || row.Taxa || row.TAXA || '0').toString().replace(',', '.')) || 0
+                    })).filter(item => item.bairro);
+                    neighborhoodsData = mapped;
+                    window.neighborhoodsData = neighborhoodsData;
+                    try { prepareNeighborhoodsAutocomplete(); } catch (e) {}
+                    updateProgress(75);
+                    return mapped;
+                }).catch(error => { errorLog('❌ Error loading neighborhoods:', error.message); neighborhoodsData = []; return []; });
+                const couponsPromise = loadCSVData(COUPONS_CSV_URL).then(data => { couponsData = data; updateProgress(80); return data; }).catch(error => { errorLog('❌ Error loading coupons:', error.message); couponsData = []; return []; });
 
-                // Load menu items data
-                infoLog('Loading menu items data...');
-                const menuItems = await loadCSVData(MENU_CSV_URL);
-                updateProgress(65);
+                // Aguardar todos (sem quebrar caso algum falhe)
+                const [menuItems] = await Promise.all([
+                    menuPromise,
+                    categoriesPromise,
+                    hoursPromise,
+                    neighborhoodsPromise,
+                    couponsPromise
+                ]);
 
-                // Load hours data
-                infoLog('Loading hours data...');
-                hoursData = await loadCSVData(HOURS_CSV_URL);
-                debugLog('Hours data loaded:', hoursData.length, 'entries');
-                
-                if (hoursData.length > 0) {
-                    // Inicializar timezone global
+                // Pós-processamento dependente
+                debugLog('Processing and organizing data...');
+                menuData = processMenuData(menuItems || [], categoriesData || []);
+                updateProgress(95);
+
+                // Inicializar timezone e horas (se disponíveis)
+                if (Array.isArray(hoursData) && hoursData.length > 0) {
                     debugLog('🚀 Initializing global timezone...');
                     initializeGlobalTimezone();
-                    
-                    // Verificar se timezone foi configurado corretamente
                     if (globalTimezone) {
                         debugLog('✅ Timezone system initialized:', globalTimezone);
                     } else {
                         warnLog('❌ Timezone system not configured properly');
                     }
                 }
-                updateProgress(80);
-
-                // Load neighborhoods data for delivery fees
-                debugLog('🏠️ Loading neighborhoods data...');
-                try {
-                    neighborhoodsData = await loadCSVData(NEIGHBORHOODS_CSV_URL);
-                    // Process neighborhoods data - mapear para formato consistente
-                    neighborhoodsData = neighborhoodsData.map(row => ({
-                        // Tentar várias possibilidades de nomes de colunas
-                        bairro: (row.bairro || row.nome_bairro || row.Bairro || row.BAIRRO || '').trim().toLowerCase(),
-                        taxa: parseFloat((row.taxa || row.valor_taxa || row.Taxa || row.TAXA || '0').toString().replace(',', '.')) || 0
-                    })).filter(item => item.bairro); // Remove empty entries
-                    
-                    // Expor dados globalmente para acesso em outras funções
-                    window.neighborhoodsData = neighborhoodsData;
-                    
-                    // Preparar lista para autocomplete
-                    prepareNeighborhoodsAutocomplete();
-                    
-                    infoLog(`✅ Neighborhoods loaded:`, neighborhoodsData.length, 'items');
-                } catch (error) {
-                    errorLog('❌ Error loading neighborhoods:', error.message);
-                    neighborhoodsData = []; // Fallback to empty array
-                }
-                
-                // Load coupons data
-                debugLog('🎟️ Loading coupons data...');
-                try {
-                    couponsData = await loadCSVData(COUPONS_CSV_URL);
-                    infoLog(`✅ Coupons loaded:`, couponsData.length, 'items');
-                } catch (error) {
-                    errorLog('❌ Error loading coupons:', error.message);
-                    couponsData = []; // Fallback to empty array
-                }
-                updateProgress(85);
-
-                // Process and organize data
-                debugLog('Processing and organizing data...');
-                menuData = processMenuData(menuItems, categoriesData);
-                updateProgress(95);
-
                 // Update operating hours display
                 updateOperatingHours();
                 
@@ -5519,6 +5493,11 @@
                     
                     // Popular selects de CEP, Bairro e Cidade
                     try { setupAddressSelects(); } catch (e) { console.error('Erro setupAddressSelects', e); }
+cursor/transformar-campos-de-entrega-em-seletores-e733
+                    // Aplicar modo de entrada (select ou input) conforme config
+                    try { applyAddressInputMode(); } catch (e) { console.error('Erro applyAddressInputMode', e); }
+
+                    main
                     
                     // Foco automático no campo de CEP após renderização
                     setTimeout(() => {
@@ -5848,6 +5827,143 @@
         }
 
         // Show all delivery options (only enabled ones from configuration)
+        // Alterna elementos de CEP/Bairro/Cidade entre <select> e <input> conforme config
+        function applyAddressInputMode() {
+            const globalEnabled = (typeof ADDRESS_FORMSELECT_ENABLED !== 'undefined') ? ADDRESS_FORMSELECT_ENABLED : true;
+            const perField = (typeof ADDRESS_FORMSELECT_FIELDS !== 'undefined') ? ADDRESS_FORMSELECT_FIELDS : {};
+            const isEnabled = field => (field in perField) ? !!perField[field] : globalEnabled;
+
+            // Helper para criar e substituir elemento
+            function replaceWith(tag, id, attrs = {}, { preserveValueFrom } = {}) {
+                const oldEl = document.getElementById(id);
+                if (!oldEl || oldEl.tagName === tag.toUpperCase()) return;
+                const newEl = document.createElement(tag);
+                newEl.id = id;
+                // Copiar classes base do antigo, se houver
+                newEl.className = oldEl.className || 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent';
+                // Aplicar atributos
+                Object.entries(attrs).forEach(([k, v]) => newEl.setAttribute(k, v));
+                // Preservar valor quando fizer sentido
+                if (preserveValueFrom && preserveValueFrom.value) {
+                    newEl.value = preserveValueFrom.value;
+                }
+                oldEl.parentNode.replaceChild(newEl, oldEl);
+            }
+
+            // CEP (modo CEP)
+            const cepEl = document.getElementById('cep');
+            if (cepEl) {
+                if (isEnabled('cep')) {
+                    // Garantir SELECT
+                    if (cepEl.tagName !== 'SELECT') {
+                        replaceWith('select', 'cep', {
+                            onchange: "clearFieldError('cep'); fetchAddress(); updateContinueButton();",
+                            onblur: "updateContinueButton();"
+                        }, { preserveValueFrom: cepEl });
+                    }
+                } else {
+                    // Garantir INPUT tel
+                    if (cepEl.tagName !== 'INPUT') {
+                        replaceWith('input', 'cep', {
+                            type: 'tel', placeholder: '00000-000', autocomplete: 'off', maxlength: '9', inputmode: 'numeric',
+                            oninput: "clearFieldError('cep'); handleCepInput();",
+                            onchange: "fetchAddress(); updateContinueButton();",
+                            onblur: "updateContinueButton();"
+                        }, { preserveValueFrom: cepEl });
+                    }
+                }
+            }
+
+            // Bairro (modo CEP)
+            const bairroEl = document.getElementById('neighborhood');
+            if (bairroEl) {
+                if (isEnabled('neighborhood')) {
+                    if (bairroEl.tagName !== 'SELECT') {
+                        replaceWith('select', 'neighborhood', {
+                            onchange: "updateAddressData(); clearFieldError('neighborhood'); buscarTaxaPorBairroRedundante(this.value, true);"
+                        }, { preserveValueFrom: bairroEl });
+                    }
+                } else {
+                    if (bairroEl.tagName !== 'INPUT') {
+                        replaceWith('input', 'neighborhood', {
+                            type: 'text', placeholder: 'Nome do bairro', autocomplete: 'off',
+                            oninput: "updateAddressData(); clearFieldError('neighborhood'); if(this.value.trim() === '') resetNeighborhoodSearchState(); buscarTaxaPorBairroRedundante(this.value);",
+                            onchange: "buscarTaxaPorBairroRedundante(this.value, true); hideNeighborhoodAutocomplete();",
+                            onblur: "setTimeout(() => { buscarTaxaPorBairroRedundante(this.value, true); hideNeighborhoodAutocomplete(); }, 200);",
+                            onpaste: "setTimeout(() => buscarTaxaPorBairroRedundante(this.value, true), 200);",
+                            onfocus: "if(this.value.length >= 2) showNeighborhoodAutocomplete(this.value);"
+                        }, { preserveValueFrom: bairroEl });
+                    }
+                }
+            }
+
+            // Cidade (modo CEP)
+            const cityEl = document.getElementById('city');
+            if (cityEl) {
+                if (isEnabled('city')) {
+                    if (cityEl.tagName !== 'SELECT') {
+                        replaceWith('select', 'city', {
+                            onchange: "updateAddressData(); clearFieldError('city');"
+                        }, { preserveValueFrom: cityEl });
+                    }
+                } else {
+                    if (cityEl.tagName !== 'INPUT') {
+                        replaceWith('input', 'city', {
+                            type: 'text', placeholder: 'Cidade - UF', autocomplete: 'off',
+                            oninput: "updateAddressData(); clearFieldError('city');"
+                        }, { preserveValueFrom: cityEl });
+                    }
+                }
+            }
+
+            // Bairro (modo MANUAL)
+            const manualBairroEl = document.getElementById('manual-neighborhood');
+            if (manualBairroEl) {
+                if (isEnabled('neighborhood')) {
+                    if (manualBairroEl.tagName !== 'SELECT') {
+                        replaceWith('select', 'manual-neighborhood', {
+                            onchange: "updateManualAddressData(); clearFieldError('manual-neighborhood'); searchNeighborhoodFee(); updateContinueButton();"
+                        }, { preserveValueFrom: manualBairroEl });
+                    }
+                } else {
+                    if (manualBairroEl.tagName !== 'INPUT') {
+                        replaceWith('input', 'manual-neighborhood', {
+                            type: 'text', placeholder: 'Centro', autocomplete: 'off',
+                            oninput: "updateManualAddressData(); searchNeighborhoodFee(); clearFieldError('manual-neighborhood');",
+                            onchange: "updateContinueButton();",
+                            onblur: "updateContinueButton();"
+                        }, { preserveValueFrom: manualBairroEl });
+                    }
+                }
+            }
+
+            // Cidade (modo MANUAL)
+            const manualCityEl = document.getElementById('manual-city');
+            if (manualCityEl) {
+                if (isEnabled('city')) {
+                    if (manualCityEl.tagName !== 'SELECT') {
+                        replaceWith('select', 'manual-city', {
+                            onchange: "updateManualAddressData(); clearFieldError('manual-city'); updateContinueButton();"
+                        }, { preserveValueFrom: manualCityEl });
+                    }
+                } else {
+                    if (manualCityEl.tagName !== 'INPUT') {
+                        replaceWith('input', 'manual-city', {
+                            type: 'text', placeholder: 'São Paulo', autocomplete: 'off',
+                            oninput: "updateManualAddressData(); clearFieldError('manual-city');",
+                            onchange: "updateContinueButton();",
+                            onblur: "updateContinueButton();"
+                        }, { preserveValueFrom: manualCityEl });
+                    }
+                }
+            }
+
+            // Se modo select estiver ativo, garantir preenchimento de opções
+            if (globalEnabled || Object.values(perField).some(Boolean)) {
+                try { setupAddressSelects(); } catch (e) {}
+            }
+        }
+
         function showAllDeliveryOptions() {
             const deliveryOptions = document.getElementById('delivery-options');
             const checkoutConfig = getCheckoutConfig();
@@ -8653,6 +8769,9 @@
                 manualContainer.classList.add('hidden');
                 cepContainer.classList.remove('hidden');
                 
+                // Aplicar modo de entrada (select ou input) conforme config
+                try { applyAddressInputMode(); } catch (e) {}
+                
                 // Limpar campos manuais
                 clearManualAddressFields();
                 
@@ -8677,6 +8796,9 @@
                 
                 // Limpar campos CEP
                 clearAddressFields();
+                
+                // Aplicar modo de entrada (select ou input) conforme config (para os campos manuais)
+                try { applyAddressInputMode(); } catch (e) {}
                 
                 // Foco no primeiro campo manual
                 setTimeout(() => {
