@@ -272,11 +272,11 @@ cursor/transformar-campos-de-entrega-em-seletores-e733
 // ====================================================================
 // Quando true, os campos CEP, Bairro e Cidade usam <select> com listas definidas
 // Quando false, os campos permitem digitação livre (<input>)
-const ADDRESS_FORMSELECT_ENABLED = true;
+const ADDRESS_FORMSELECT_ENABLED = ;
 
 // (Opcional) Controle por campo. Se não definido, usa o valor global acima
 // Exemplo: { cep: true, neighborhood: true, city: false }
-// const ADDRESS_FORMSELECT_FIELDS = { cep: true, neighborhood: true, city: true };
+const ADDRESS_FORMSELECT_FIELDS = { cep: true, neighborhood: false, city: true };
 
 // ====================================================================
 
@@ -286,11 +286,11 @@ main
 // Edite estas listas para controlar as opções exibidas nos selects
 // Exemplo de CEPs: use com ou sem máscara; internamente usamos apenas dígitos
 const SELECT_CEPS = [
-    // '01001-000', '02020-020', '03030-030'
+    '01001-000', '02020-020', '03030-030'
 ];
 
 // Exemplo de Cidades: use o formato que deseja exibir (ex.: 'São Paulo - SP')
 const SELECT_CIDADES = [
-    // 'São Paulo - SP', 'Rio de Janeiro - RJ', 'Belo Horizonte - MG'
+    'São Paulo - SP', 'Rio de Janeiro - RJ', 'Belo Horizonte - MG'
 ];
 
